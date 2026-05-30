@@ -31,14 +31,17 @@ export default function LeaderboardPage() {
       <div className="max-w-2xl mx-auto p-6">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-2xl font-bold tracking-tight mb-2">Leaderboard</h1>
+          <h1 className="text-2xl font-bold tracking-tight mb-2">Rankings</h1>
           <p className="text-sm text-muted-foreground">
-            The grind never stops. Where do you rank?
+            {session.isActive 
+              ? "Good. You&apos;re locked in. Now stay there." 
+              : "They&apos;re outworking you right now. What are you doing?"
+            }
           </p>
         </div>
 
         {/* Time Filter */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-10">
           {(['all', 'week', 'today'] as const).map((filter) => (
             <button
               key={filter}
@@ -58,52 +61,52 @@ export default function LeaderboardPage() {
         </div>
 
         {/* Top 3 Podium */}
-        <div className="flex items-end justify-center gap-4 mb-8 h-48">
+        <div className="flex items-end justify-center gap-4 mb-10 pt-8">
           {/* 2nd Place */}
-          <div className="flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-card border border-border flex items-center justify-center mb-2">
+          <Link href={`/profile/${sortedUsers[1]?.id}`} className="flex flex-col items-center group cursor-pointer">
+            <div className="w-16 h-16 rounded-full bg-card border border-border flex items-center justify-center mb-2 group-hover:border-muted-foreground transition-colors">
               <span className="text-lg font-bold">{sortedUsers[1]?.username.charAt(0).toUpperCase()}</span>
             </div>
             <span className="text-xs text-muted-foreground mb-1">2nd</span>
-            <div className="w-20 h-20 bg-card rounded-t-lg flex flex-col items-center justify-center">
+            <div className="w-20 h-20 bg-card rounded-t-lg flex flex-col items-center justify-center group-hover:bg-accent/50 transition-colors">
               <span className="text-xs font-medium truncate max-w-full px-1">{sortedUsers[1]?.username}</span>
               <span className="text-sm font-mono text-muted-foreground">{getHours(sortedUsers[1]).toFixed(1)}h</span>
             </div>
-          </div>
+          </Link>
 
           {/* 1st Place */}
-          <div className="flex flex-col items-center">
+          <Link href={`/profile/${sortedUsers[0]?.id}`} className="flex flex-col items-center group cursor-pointer">
             <Flame className={cn(
               "w-6 h-6 mb-1",
               session.isActive ? "text-lockin-red" : "text-foreground"
             )} />
             <div className={cn(
-              "w-20 h-20 rounded-full border-2 flex items-center justify-center mb-2",
-              session.isActive ? "border-lockin-red bg-lockin-red/10" : "border-foreground bg-card"
+              "w-20 h-20 rounded-full border-2 flex items-center justify-center mb-2 transition-colors",
+              session.isActive ? "border-lockin-red bg-lockin-red/10 group-hover:bg-lockin-red/20" : "border-foreground bg-card group-hover:bg-accent/50"
             )}>
               <span className="text-xl font-bold">{sortedUsers[0]?.username.charAt(0).toUpperCase()}</span>
             </div>
             <span className="text-xs text-muted-foreground mb-1">1st</span>
             <div className={cn(
-              "w-24 h-28 rounded-t-lg flex flex-col items-center justify-center",
-              session.isActive ? "bg-lockin-red/20" : "bg-card"
+              "w-24 h-28 rounded-t-lg flex flex-col items-center justify-center transition-colors",
+              session.isActive ? "bg-lockin-red/20 group-hover:bg-lockin-red/30" : "bg-card group-hover:bg-accent/50"
             )}>
               <span className="text-sm font-medium truncate max-w-full px-1">{sortedUsers[0]?.username}</span>
               <span className="text-lg font-mono font-bold">{getHours(sortedUsers[0]).toFixed(1)}h</span>
             </div>
-          </div>
+          </Link>
 
           {/* 3rd Place */}
-          <div className="flex flex-col items-center">
-            <div className="w-16 h-16 rounded-full bg-card border border-border flex items-center justify-center mb-2">
+          <Link href={`/profile/${sortedUsers[2]?.id}`} className="flex flex-col items-center group cursor-pointer">
+            <div className="w-16 h-16 rounded-full bg-card border border-border flex items-center justify-center mb-2 group-hover:border-muted-foreground transition-colors">
               <span className="text-lg font-bold">{sortedUsers[2]?.username.charAt(0).toUpperCase()}</span>
             </div>
             <span className="text-xs text-muted-foreground mb-1">3rd</span>
-            <div className="w-20 h-16 bg-card rounded-t-lg flex flex-col items-center justify-center">
+            <div className="w-20 h-16 bg-card rounded-t-lg flex flex-col items-center justify-center group-hover:bg-accent/50 transition-colors">
               <span className="text-xs font-medium truncate max-w-full px-1">{sortedUsers[2]?.username}</span>
               <span className="text-sm font-mono text-muted-foreground">{getHours(sortedUsers[2]).toFixed(1)}h</span>
             </div>
-          </div>
+          </Link>
         </div>
 
         {/* Full List */}

@@ -74,7 +74,7 @@ export function LockInButton() {
         session.isActive ? "text-lockin-red/70" : "text-muted-foreground"
       )}>
         <Users className="w-4 h-4" />
-        <span className="font-mono">{activeUsers} locked in right now</span>
+        <span className="font-mono">{activeUsers} people grinding rn</span>
       </div>
 
       {/* Timer display when active */}
@@ -127,14 +127,14 @@ export function LockInButton() {
         "mt-8 text-sm font-medium uppercase tracking-widest transition-colors duration-500",
         session.isActive ? "text-lockin-red/50" : "text-muted-foreground"
       )}>
-        {session.isActive ? 'stay focused' : 'time to work'}
+        {session.isActive ? 'prove them wrong' : 'they\'re watching'}
       </p>
 
       {/* Active leaderboard preview */}
       {!session.isActive && (
         <div className="mt-12 w-full max-w-sm">
           <div className="text-xs uppercase tracking-widest text-muted-foreground mb-3">
-            top grinders today
+            outworking you today
           </div>
           <div className="space-y-2">
             {mockUsers.slice(0, 3).map((user, i) => (

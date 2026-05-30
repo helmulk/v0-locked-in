@@ -16,8 +16,8 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: 'Lock In - Social Productivity',
-  description: 'Lock in. Show up. Outwork everyone.',
+  title: 'Locked - Outwork Everyone',
+  description: 'They&apos;re grinding while you&apos;re scrolling. Lock in or get left behind.',
   generator: 'v0.app',
 }
 
