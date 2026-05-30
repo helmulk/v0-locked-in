@@ -4,6 +4,7 @@ import { Analytics } from '@vercel/analytics/next'
 import './globals.css'
 import { AppProvider } from '@/components/providers/app-provider'
 import { Navigation } from '@/components/navigation'
+import { SetupBanner } from '@/components/setup-banner'
 
 const geist = Geist({ 
   subsets: ["latin"],
@@ -36,6 +37,7 @@ export default function RootLayout({
     <html lang="en" className={`${geist.variable} ${geistMono.variable} bg-background`}>
       <body className="font-sans antialiased min-h-screen">
         <AppProvider>
+          <SetupBanner />
           <Navigation />
           <main className="pb-20 md:pb-0 md:pl-20">
             {children}

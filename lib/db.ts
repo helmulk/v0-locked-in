@@ -1,4 +1,4 @@
-import { supabase } from './supabase'
+import { getSupabase, isSupabaseConfigured } from './supabase'
 import type { User, Post, Chat, Message } from './types'
 
 export interface ProfileRow {
@@ -85,14 +85,20 @@ function sessionDurationForPost(
 }
 
 export async function resolveCurrentUserId(): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null
+
   const fromEnv = process.env.NEXT_PUBLIC_CURRENT_USER_ID
   if (fromEnv) return fromEnv
 
+  const supabase = getSupabase()
   const { data } = await supabase.from('profiles').select('id').limit(1).single()
   return data?.id ?? null
 }
 
 export async function fetchProfiles(): Promise<User[]> {
+  if (!isSupabaseConfigured()) return []
+
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from('profiles')
     .select('*')
@@ -107,6 +113,9 @@ export async function fetchProfiles(): Promise<User[]> {
 }
 
 export async function fetchProfileById(id: string): Promise<User | null> {
+  if (!isSupabaseConfigured()) return null
+
+  const supabase = getSupabase()
   const { data, error } = await supabase.from('profiles').select('*').eq('id', id).single()
 
   if (error || !data) {
@@ -118,6 +127,9 @@ export async function fetchProfileById(id: string): Promise<User | null> {
 }
 
 export async function fetchPosts(): Promise<Post[]> {
+  if (!isSupabaseConfigured()) return []
+
+  const supabase = getSupabase()
   const [{ data: postRows, error: postsError }, { data: profileRows }, { data: sessionRows }] =
     await Promise.all([
       supabase.from('posts').select('*').order('created_at', { ascending: false }),
@@ -160,6 +172,9 @@ export async function fetchPosts(): Promise<Post[]> {
 }
 
 export async function fetchChatsForUser(currentUserId: string): Promise<Chat[]> {
+  if (!isSupabaseConfigured()) return []
+
+  const supabase = getSupabase()
   const [{ data: chatRows, error: chatsError }, { data: messageRows }, { data: profileRows }] =
     await Promise.all([
       supabase.from('chats').select('*').order('id'),
@@ -223,6 +238,9 @@ export async function fetchChatsForUser(currentUserId: string): Promise<Chat[]> 
 }
 
 export async function fetchMessages(chatId: string): Promise<Message[]> {
+  if (!isSupabaseConfigured()) return []
+
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from('messages')
     .select('*')
@@ -242,6 +260,9 @@ export async function sendMessage(
   senderId: string,
   content: string
 ): Promise<Message | null> {
+  if (!isSupabaseConfigured()) return null
+
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from('messages')
     .insert({ chat_id: chatId, sender_id: senderId, content })
@@ -260,6 +281,9 @@ export async function createSession(
   userId: string,
   durationHours: number
 ): Promise<SessionRow | null> {
+  if (!isSupabaseConfigured()) return null
+
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from('sessions')
     .insert({ user_id: userId, duration: durationHours })
@@ -279,6 +303,9 @@ export async function updateProfileHours(
   addedHours: number,
   currentStreak: number
 ): Promise<void> {
+  if (!isSupabaseConfigured()) return
+
+  const supabase = getSupabase()
   const profile = await fetchProfileById(userId)
   if (!profile) return
 
@@ -325,6 +352,9 @@ export async function updatePostReaction(
   field: 'likes' | 'dislikes',
   value: number
 ): Promise<void> {
+  if (!isSupabaseConfigured()) return
+
+  const supabase = getSupabase()
   const { error } = await supabase.from('posts').update({ [field]: value }).eq('id', postId)
 
   if (error) {
@@ -333,9 +363,13 @@ export async function updatePostReaction(
 }
 
 export async function fetchWeeklyActivity(userId: string): Promise<WeeklyDay[]> {
-  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const orderedLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+  if (!isSupabaseConfigured()) {
+    return orderedLabels.map((day) => ({ day, hours: 0 }))
+  }
 
+  const supabase = getSupabase()
+  const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const weekStart = new Date()
   weekStart.setHours(0, 0, 0, 0)
   weekStart.setDate(weekStart.getDate() - weekStart.getDay() + 1)
@@ -368,6 +402,9 @@ export async function fetchWeeklyActivity(userId: string): Promise<WeeklyDay[]> 
 }
 
 export async function fetchUserSessions(userId: string, limit = 12): Promise<SessionRow[]> {
+  if (!isSupabaseConfigured()) return []
+
+  const supabase = getSupabase()
   const { data, error } = await supabase
     .from('sessions')
     .select('*')

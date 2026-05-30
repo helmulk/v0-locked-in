@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { useApp } from '@/components/providers/app-provider'
-import { supabase } from '@/lib/supabase'
+import { getSupabase, isSupabaseConfigured } from '@/lib/supabase'
 import type { ProfileRow } from '@/lib/db'
 import { cn } from '@/lib/utils'
 import { Users } from 'lucide-react'
@@ -26,7 +26,9 @@ export function LockInButton() {
 
   useEffect(() => {
     async function loadLeaderboardPreview() {
-      const { data } = await supabase
+      if (!isSupabaseConfigured()) return
+
+      const { data } = await getSupabase()
         .from('profiles')
         .select('*')
         .order('weekly_hours', { ascending: false })

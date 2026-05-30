@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { supabase } from '@/lib/supabase'
+import { getSupabase, isSupabaseConfigured } from '@/lib/supabase'
 import type { ProfileRow } from '@/lib/db'
 import { useApp } from '@/components/providers/app-provider'
 import { cn } from '@/lib/utils'
@@ -14,7 +14,12 @@ export default function LeaderboardPage() {
 
   useEffect(() => {
     async function loadUsers() {
-      const { data, error } = await supabase
+      if (!isSupabaseConfigured()) {
+        setLoading(false)
+        return
+      }
+
+      const { data, error } = await getSupabase()
         .from('profiles')
         .select('*')
 
