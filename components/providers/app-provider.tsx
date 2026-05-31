@@ -3,6 +3,7 @@
 import {
   createContext, useContext, useState, useCallback, useEffect, type ReactNode,
 } from 'react'
+import { getSupabase, isSupabaseConfigured } from '@/lib/supabase'
 import {
   resolveCurrentUserId, fetchProfiles, fetchPosts,
   createSession, updateProfileHours, updatePostReaction,
@@ -54,7 +55,13 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   const refreshData = useCallback(async () => {
     const currentUserId = await resolveCurrentUserId()
-    if (!currentUserId) { setIsLoading(false); return }
+    if (!currentUserId) {
+      setUser(defaultUser)
+      setFollowIds([])
+      setNudgeCount(0)
+      setIsLoading(false)
+      return
+    }
 
     const [profiles, postsData, followingIds, unseen] = await Promise.all([
       fetchProfiles(),
@@ -72,7 +79,21 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setIsLoading(false)
   }, [])
 
-  useEffect(() => { refreshData() }, [refreshData])
+  // Listen for sign in / sign out events and refresh immediately
+  useEffect(() => {
+    refreshData()
+
+    if (!isSupabaseConfigured()) return
+
+    const supabase = getSupabase()
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN' || event === 'SIGNED_OUT' || event === 'TOKEN_REFRESHED') {
+        refreshData()
+      }
+    })
+
+    return () => subscription.unsubscribe()
+  }, [refreshData])
 
   const friends = users.filter((u) => followIds.includes(u.id) && u.id !== user.id)
 
