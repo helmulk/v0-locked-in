@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createClient } from '@/utils/supabase/client'
 
 export default function LoginPage() {
   const [mode, setMode] = useState<'login' | 'signup'>('login')
@@ -11,6 +12,7 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null)
   const router = useRouter()
+  const supabase = createClient()
 
   async function handleSubmit() {
     if (!email || !password) return setMessage({ text: 'Fill in all fields', type: 'error' })
@@ -18,36 +20,36 @@ export default function LoginPage() {
     setLoading(true)
     setMessage(null)
 
-    try {
-      if (mode === 'signup') {
-        const res = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password, username }),
-        })
-        const data = await res.json()
-        if (!res.ok) setMessage({ text: data.error || 'Signup failed', type: 'error' })
-        else setMessage({ text: 'Check your email to confirm your account!', type: 'success' })
+    if (mode === 'signup') {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: {
+          data: { username, display_name: username },
+          emailRedirectTo: `${location.origin}/auth/callback`,
+        },
+      })
+      if (error) setMessage({ text: error.message, type: 'error' })
+      else setMessage({ text: 'Check your email to confirm your account!', type: 'success' })
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) {
+        setMessage({ text: error.message, type: 'error' })
       } else {
-        const res = await fetch('/api/auth/login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ email, password }),
-        })
-        const data = await res.json()
-        if (!res.ok) setMessage({ text: data.error || 'Login failed', type: 'error' })
-        else router.push('/')
+        router.push('/profile')
+        router.refresh()
       }
-    } catch (e) {
-      setMessage({ text: 'Something went wrong. Try again.', type: 'error' })
     }
     setLoading(false)
   }
 
   const inputStyle: React.CSSProperties = {
-    width: '100%', background: '#1a1a1a', border: '0.5px solid rgba(255,255,255,0.1)',
-    borderRadius: '8px', padding: '12px 14px', fontSize: '14px', color: '#fff',
-    marginBottom: '10px', outline: 'none', colorScheme: 'dark',
+    width: '100%', background: '#1a1a1a',
+    border: '0.5px solid rgba(255,255,255,0.1)',
+    borderRadius: '8px', padding: '12px 14px',
+    fontSize: '14px', color: '#fff',
+    marginBottom: '10px', outline: 'none',
+    colorScheme: 'dark',
   }
 
   return (
@@ -70,18 +72,23 @@ export default function LoginPage() {
             }}>
               <div style={{ width: '7px', height: '9px', background: '#cc0000', borderRadius: '1px' }} />
             </div>
-            <span style={{ color: '#fff', fontSize: '20px', fontWeight: '500', letterSpacing: '-0.5px' }}>Locked In</span>
+            <span style={{ color: '#fff', fontSize: '20px', fontWeight: '500', letterSpacing: '-0.5px' }}>
+              Locked In
+            </span>
           </div>
           <p style={{ color: 'rgba(255,255,255,0.28)', fontSize: '13px' }}>
             {mode === 'login' ? 'Welcome back. Time to lock in.' : 'Create an account and start grinding.'}
           </p>
         </div>
 
-        <div style={{ display: 'flex', background: '#111', borderRadius: '8px', padding: '3px', marginBottom: '20px' }}>
-          {(['login', 'signup'] as const).map(m => (
+        <div style={{
+          display: 'flex', background: '#111', borderRadius: '8px',
+          padding: '3px', marginBottom: '20px',
+        }}>
+          {(['login', 'signup'] as const).map((m) => (
             <button key={m} onClick={() => { setMode(m); setMessage(null) }} style={{
-              flex: 1, padding: '8px', borderRadius: '6px', border: 'none', cursor: 'pointer',
-              fontSize: '13px', fontWeight: '500',
+              flex: 1, padding: '8px', borderRadius: '6px', border: 'none',
+              cursor: 'pointer', fontSize: '13px', fontWeight: '500',
               background: mode === m ? '#fff' : 'transparent',
               color: mode === m ? '#111' : 'rgba(255,255,255,0.35)',
             }}>
@@ -92,14 +99,16 @@ export default function LoginPage() {
 
         {mode === 'signup' && (
           <input type="text" placeholder="Username" value={username}
-            onChange={e => setUsername(e.target.value)} style={inputStyle} />
+            onChange={(e) => setUsername(e.target.value)} style={inputStyle} />
         )}
         <input type="email" placeholder="Email" value={email}
-          onChange={e => setEmail(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={inputStyle} />
+          onChange={(e) => setEmail(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+          style={inputStyle} />
         <input type="password" placeholder="Password" value={password}
-          onChange={e => setPassword(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={{ ...inputStyle, marginBottom: '16px' }} />
+          onChange={(e) => setPassword(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
+          style={{ ...inputStyle, marginBottom: '16px' }} />
 
         {message && (
           <div style={{
@@ -107,20 +116,28 @@ export default function LoginPage() {
             background: message.type === 'error' ? 'rgba(180,0,0,0.12)' : 'rgba(0,180,80,0.1)',
             color: message.type === 'error' ? '#cc0000' : '#00c853',
             border: `0.5px solid ${message.type === 'error' ? 'rgba(180,0,0,0.25)' : 'rgba(0,180,80,0.2)'}`,
-          }}>{message.text}</div>
+          }}>
+            {message.text}
+          </div>
         )}
 
         <button onClick={handleSubmit} disabled={loading} style={{
           width: '100%', padding: '13px', borderRadius: '8px', border: 'none',
           background: loading ? 'rgba(255,255,255,0.08)' : '#fff',
           color: loading ? 'rgba(255,255,255,0.3)' : '#111',
-          fontSize: '14px', fontWeight: '500', cursor: loading ? 'not-allowed' : 'pointer',
+          fontSize: '14px', fontWeight: '500',
+          cursor: loading ? 'not-allowed' : 'pointer',
         }}>
           {loading ? 'Loading...' : mode === 'login' ? 'Sign in' : 'Create account'}
         </button>
 
-        <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '13px', color: 'rgba(255,255,255,0.25)', cursor: 'pointer' }}
-          onClick={() => router.push('/')}>
+        <p
+          onClick={() => router.push('/')}
+          style={{
+            textAlign: 'center', marginTop: '16px', fontSize: '13px',
+            color: 'rgba(255,255,255,0.25)', cursor: 'pointer',
+          }}
+        >
           ← Back to app
         </p>
       </div>
