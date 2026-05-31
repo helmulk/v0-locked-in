@@ -52,12 +52,9 @@ export function mapProfile(row: ProfileRow): User {
   }
 }
 
-// ── Auth ───────────────────────────────────────────────────────────────────
-
 export async function resolveCurrentUserId(): Promise<string | null> {
   if (!isSupabaseConfigured()) return null
-  const supabase = getSupabase()
-  const { data: { user } } = await supabase.auth.getUser()
+  const { data: { user } } = await getSupabase().auth.getUser()
   return user?.id ?? null
 }
 
@@ -66,22 +63,17 @@ export async function signOut(): Promise<void> {
   await getSupabase().auth.signOut()
 }
 
-// ── Profiles ───────────────────────────────────────────────────────────────
-
 export async function fetchProfiles(): Promise<User[]> {
   if (!isSupabaseConfigured()) return []
   const { data, error } = await getSupabase()
-    .from('profiles')
-    .select('*')
-    .order('total_hours', { ascending: false })
+    .from('profiles').select('*').order('total_hours', { ascending: false })
   if (error) { console.error('fetchProfiles:', error.message); return [] }
   return (data as ProfileRow[]).map(mapProfile)
 }
 
 export async function fetchProfileById(id: string): Promise<User | null> {
   if (!isSupabaseConfigured()) return null
-  const { data, error } = await getSupabase()
-    .from('profiles').select('*').eq('id', id).single()
+  const { data, error } = await getSupabase().from('profiles').select('*').eq('id', id).single()
   if (error || !data) return null
   return mapProfile(data as ProfileRow)
 }
@@ -91,14 +83,10 @@ export async function updateUsername(userId: string, username: string): Promise<
   await getSupabase().from('profiles').update({ username }).eq('id', userId)
 }
 
-// ── Sessions ───────────────────────────────────────────────────────────────
-
 export async function createSession(userId: string, durationHours: number): Promise<SessionRow | null> {
   if (!isSupabaseConfigured()) return null
   const { data, error } = await getSupabase()
-    .from('sessions')
-    .insert({ user_id: userId, duration: durationHours })
-    .select().single()
+    .from('sessions').insert({ user_id: userId, duration: durationHours }).select().single()
   if (error || !data) { console.error('createSession:', error?.message); return null }
   return data as SessionRow
 }
@@ -118,12 +106,12 @@ export async function updateProfileHours(userId: string, addedHours: number, cur
   if (todayCount === 1) {
     const startOfYesterday = new Date(startOfToday)
     startOfYesterday.setDate(startOfYesterday.getDate() - 1)
-    const { count: yesterdayCount } = await supabase
+    const { count: yestCount } = await supabase
       .from('sessions').select('*', { count: 'exact', head: true })
       .eq('user_id', userId)
       .gte('created_at', startOfYesterday.toISOString())
       .lt('created_at', startOfToday.toISOString())
-    newStreak = (yesterdayCount ?? 0) > 0 ? currentStreak + 1 : 1
+    newStreak = (yestCount ?? 0) > 0 ? currentStreak + 1 : 1
   }
 
   await supabase.from('profiles').update({
@@ -136,19 +124,14 @@ export async function updateProfileHours(userId: string, addedHours: number, cur
 export async function fetchWeeklyActivity(userId: string): Promise<WeeklyDay[]> {
   const orderedLabels = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
   if (!isSupabaseConfigured()) return orderedLabels.map((day) => ({ day, hours: 0 }))
-
-  const supabase = getSupabase()
   const dayLabels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
   const weekStart = new Date(); weekStart.setHours(0, 0, 0, 0)
-  const day = weekStart.getDay()
-  weekStart.setDate(weekStart.getDate() - (day === 0 ? 6 : day - 1))
-
-  const { data, error } = await supabase
+  const d = weekStart.getDay()
+  weekStart.setDate(weekStart.getDate() - (d === 0 ? 6 : d - 1))
+  const { data, error } = await getSupabase()
     .from('sessions').select('duration, created_at')
     .eq('user_id', userId).gte('created_at', weekStart.toISOString())
-
   if (error) return orderedLabels.map((day) => ({ day, hours: 0 }))
-
   const hoursByDay = new Map(orderedLabels.map((l) => [l, 0]))
   for (const row of (data as { duration: number; created_at: string }[]) || []) {
     const label = dayLabels[new Date(row.created_at).getDay()]
@@ -166,36 +149,30 @@ export async function fetchUserSessions(userId: string, limit = 12): Promise<Ses
   return (data as SessionRow[]) || []
 }
 
-// ── Posts / Feed ───────────────────────────────────────────────────────────
-
 export async function fetchPosts(): Promise<Post[]> {
   if (!isSupabaseConfigured()) return []
   const supabase = getSupabase()
-  const [{ data: postRows, error }, { data: profileRows }, { data: sessionRows }] =
-    await Promise.all([
-      supabase.from('posts').select('*').order('created_at', { ascending: false }),
-      supabase.from('profiles').select('*'),
-      supabase.from('sessions').select('*'),
-    ])
+  const [{ data: postRows, error }, { data: profileRows }, { data: sessionRows }] = await Promise.all([
+    supabase.from('posts').select('*').order('created_at', { ascending: false }),
+    supabase.from('profiles').select('*'),
+    supabase.from('sessions').select('*'),
+  ])
   if (error) { console.error('fetchPosts:', error.message); return [] }
-
   const profilesById = new Map(((profileRows as ProfileRow[]) || []).map((p) => [p.id, mapProfile(p)]))
   const sessions = (sessionRows as SessionRow[]) || []
-
   return ((postRows as PostRow[]) || []).map((row) => {
     const user = profilesById.get(row.user_id) ?? {
       id: row.user_id, username: 'unknown', totalHours: 0, weeklyHours: 0, streak: 0, joinedAt: new Date(),
     }
     const postDate = new Date(row.created_at).toDateString()
-    const matchedSession = sessions
+    const match = sessions
       .filter((s) => s.user_id === row.user_id && new Date(s.created_at).toDateString() === postDate)
       .sort((a, b) => Math.abs(new Date(a.created_at).getTime() - new Date(row.created_at).getTime()) -
         Math.abs(new Date(b.created_at).getTime() - new Date(row.created_at).getTime()))[0]
-
     return {
       id: row.id, userId: row.user_id, user,
       imageUrl: row.image_url || '',
-      duration: matchedSession ? Number(matchedSession.duration) || 0 : 0,
+      duration: match ? Number(match.duration) || 0 : 0,
       description: row.description ?? undefined,
       likes: row.likes ?? 0, dislikes: row.dislikes ?? 0,
       createdAt: new Date(row.created_at),
@@ -205,9 +182,7 @@ export async function fetchPosts(): Promise<Post[]> {
 
 export async function createPost(userId: string, description: string, imageUrl?: string): Promise<void> {
   if (!isSupabaseConfigured()) return
-  await getSupabase().from('posts').insert({
-    user_id: userId, description, image_url: imageUrl ?? null,
-  })
+  await getSupabase().from('posts').insert({ user_id: userId, description, image_url: imageUrl ?? null })
 }
 
 export async function updatePostReaction(postId: string, field: 'likes' | 'dislikes', value: number): Promise<void> {
@@ -215,12 +190,9 @@ export async function updatePostReaction(postId: string, field: 'likes' | 'disli
   await getSupabase().from('posts').update({ [field]: value }).eq('id', postId)
 }
 
-// ── Follows ────────────────────────────────────────────────────────────────
-
 export async function fetchFollowing(userId: string): Promise<string[]> {
   if (!isSupabaseConfigured()) return []
-  const { data } = await getSupabase()
-    .from('follows').select('following_id').eq('follower_id', userId)
+  const { data } = await getSupabase().from('follows').select('following_id').eq('follower_id', userId)
   return ((data || []) as { following_id: string }[]).map((r) => r.following_id)
 }
 
@@ -231,20 +203,15 @@ export async function follow(followerId: string, followingId: string): Promise<v
 
 export async function unfollow(followerId: string, followingId: string): Promise<void> {
   if (!isSupabaseConfigured()) return
-  await getSupabase().from('follows')
-    .delete().eq('follower_id', followerId).eq('following_id', followingId)
+  await getSupabase().from('follows').delete().eq('follower_id', followerId).eq('following_id', followingId)
 }
-
-// ── Nudges ─────────────────────────────────────────────────────────────────
 
 export async function fetchNudges(userId: string): Promise<NudgeRow[]> {
   if (!isSupabaseConfigured()) return []
   const { data } = await getSupabase()
     .from('nudges')
     .select('*, from_profile:profiles!nudges_from_id_fkey(id, username, total_hours, weekly_hours, streak)')
-    .eq('to_id', userId)
-    .order('created_at', { ascending: false })
-    .limit(20)
+    .eq('to_id', userId).order('created_at', { ascending: false }).limit(20)
   return (data as NudgeRow[]) || []
 }
 
@@ -266,15 +233,12 @@ export async function countUnseenNudges(userId: string): Promise<number> {
   return count ?? 0
 }
 
-// ── Leaderboard helpers ────────────────────────────────────────────────────
-
 export function getUserRank(profiles: User[], userId: string): number {
   const sorted = [...profiles].sort((a, b) => b.totalHours - a.totalHours)
   const index = sorted.findIndex((p) => p.id === userId)
   return index >= 0 ? index + 1 : 0
 }
 
-// ── Legacy chat stubs (keeps TypeScript happy) ─────────────────────────────
 export async function fetchChatsForUser(_userId: string): Promise<Chat[]> { return [] }
 export async function fetchMessages(_chatId: string): Promise<Message[]> { return [] }
 export async function sendMessage(_chatId: string, _senderId: string, _content: string): Promise<Message | null> { return null }
