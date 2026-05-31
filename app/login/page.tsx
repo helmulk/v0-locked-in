@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createClient } from '@/utils/supabase/client'
 import { useRouter } from 'next/navigation'
 
 export default function LoginPage() {
@@ -12,7 +11,6 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [message, setMessage] = useState<{ text: string; type: 'error' | 'success' } | null>(null)
   const router = useRouter()
-  const supabase = createClient()
 
   async function handleSubmit() {
     if (!email || !password) return setMessage({ text: 'Fill in all fields', type: 'error' })
@@ -20,23 +18,36 @@ export default function LoginPage() {
     setLoading(true)
     setMessage(null)
 
-    if (mode === 'signup') {
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { username, display_name: username },
-          emailRedirectTo: `${location.origin}/auth/callback`,
-        },
-      })
-      if (error) setMessage({ text: error.message, type: 'error' })
-      else setMessage({ text: 'Check your email to confirm your account!', type: 'success' })
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setMessage({ text: error.message, type: 'error' })
-      else router.push('/')
+    try {
+      if (mode === 'signup') {
+        const res = await fetch('/api/auth/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, username }),
+        })
+        const data = await res.json()
+        if (!res.ok) setMessage({ text: data.error || 'Signup failed', type: 'error' })
+        else setMessage({ text: 'Check your email to confirm your account!', type: 'success' })
+      } else {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password }),
+        })
+        const data = await res.json()
+        if (!res.ok) setMessage({ text: data.error || 'Login failed', type: 'error' })
+        else router.push('/')
+      }
+    } catch (e) {
+      setMessage({ text: 'Something went wrong. Try again.', type: 'error' })
     }
     setLoading(false)
+  }
+
+  const inputStyle: React.CSSProperties = {
+    width: '100%', background: '#1a1a1a', border: '0.5px solid rgba(255,255,255,0.1)',
+    borderRadius: '8px', padding: '12px 14px', fontSize: '14px', color: '#fff',
+    marginBottom: '10px', outline: 'none', colorScheme: 'dark',
   }
 
   return (
@@ -73,7 +84,6 @@ export default function LoginPage() {
               fontSize: '13px', fontWeight: '500',
               background: mode === m ? '#fff' : 'transparent',
               color: mode === m ? '#111' : 'rgba(255,255,255,0.35)',
-              transition: 'all 0.15s',
             }}>
               {m === 'login' ? 'Sign in' : 'Sign up'}
             </button>
@@ -82,15 +92,14 @@ export default function LoginPage() {
 
         {mode === 'signup' && (
           <input type="text" placeholder="Username" value={username}
-            onChange={e => setUsername(e.target.value)}
-            style={{ width: '100%', background: '#1a1a1a', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '12px 14px', fontSize: '14px', color: '#fff', marginBottom: '10px', outline: 'none', colorScheme: 'dark' as const }} />
+            onChange={e => setUsername(e.target.value)} style={inputStyle} />
         )}
         <input type="email" placeholder="Email" value={email}
-          onChange={e => setEmail(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-          style={{ width: '100%', background: '#1a1a1a', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '12px 14px', fontSize: '14px', color: '#fff', marginBottom: '10px', outline: 'none', colorScheme: 'dark' as const }} />
+          onChange={e => setEmail(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={inputStyle} />
         <input type="password" placeholder="Password" value={password}
-          onChange={e => setPassword(e.target.value)} onKeyDown={e => e.key === 'Enter' && handleSubmit()}
-          style={{ width: '100%', background: '#1a1a1a', border: '0.5px solid rgba(255,255,255,0.1)', borderRadius: '8px', padding: '12px 14px', fontSize: '14px', color: '#fff', marginBottom: '16px', outline: 'none', colorScheme: 'dark' as const }} />
+          onChange={e => setPassword(e.target.value)}
+          onKeyDown={e => e.key === 'Enter' && handleSubmit()} style={{ ...inputStyle, marginBottom: '16px' }} />
 
         {message && (
           <div style={{
@@ -109,6 +118,11 @@ export default function LoginPage() {
         }}>
           {loading ? 'Loading...' : mode === 'login' ? 'Sign in' : 'Create account'}
         </button>
+
+        <p style={{ textAlign: 'center', marginTop: '16px', fontSize: '13px', color: 'rgba(255,255,255,0.25)', cursor: 'pointer' }}
+          onClick={() => router.push('/')}>
+          ← Back to app
+        </p>
       </div>
     </div>
   )
