@@ -242,3 +242,30 @@ export function getUserRank(profiles: User[], userId: string): number {
 export async function fetchChatsForUser(_userId: string): Promise<Chat[]> { return [] }
 export async function fetchMessages(_chatId: string): Promise<Message[]> { return [] }
 export async function sendMessage(_chatId: string, _senderId: string, _content: string): Promise<Message | null> { return null }
+
+export async function fetchActiveCount(): Promise<number> {
+  if (!isSupabaseConfigured()) return 0
+  const { count } = await getSupabase()
+    .from('profiles')
+    .select('*', { count: 'exact', head: true })
+    .not('locked_in_at', 'is', null)
+  return count ?? 0
+}
+
+export async function setLockInStatus(userId: string, active: boolean): Promise<void> {
+  if (!isSupabaseConfigured()) return
+  await getSupabase()
+    .from('profiles')
+    .update({ locked_in_at: active ? new Date().toISOString() : null })
+    .eq('id', userId)
+}
+
+export async function uploadSessionPhoto(userId: string, file: File): Promise<string | null> {
+  if (!isSupabaseConfigured()) return null
+  const ext = file.name.split('.').pop() || 'jpg'
+  const path = `${userId}/${Date.now()}.${ext}`
+  const { data, error } = await getSupabase().storage.from('session-photos').upload(path, file)
+  if (error || !data) { console.error('uploadSessionPhoto:', error?.message); return null }
+  const { data: url } = getSupabase().storage.from('session-photos').getPublicUrl(data.path)
+  return url.publicUrl
+}
